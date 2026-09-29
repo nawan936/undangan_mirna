@@ -45,14 +45,11 @@
     }
 
     window[callbackName] = function (items) {
-      const comments = Array.isArray(items) ? items : [];
-      const html = comments.map(function (item) {
-        const isAttending =
-          item.kehadiran === "Hadir" || item.ket_hadir === "1";
-        const attendance = isAttending
+      const html = (Array.isArray(items) ? items : []).map(function (item) {
+        const attending = item.kehadiran === "Hadir" || item.ket_hadir === "1";
+        const hadir = attending
           ? "Hadir (" + (item.jumlah || "0") + " orang)"
           : "Tidak hadir";
-
         return $("<div>")
           .addClass("ucapan-lokal-item")
           .css({
@@ -64,13 +61,12 @@
             $("<strong>").text(item.nama || "Tamu"),
             $("<small>")
               .css({ display: "block", color: "#777" })
-              .text(attendance + (item.waktu ? " - " + item.waktu : "")),
+              .text(hadir + (item.waktu ? " - " + item.waktu : "")),
             $("<p>")
               .css({ margin: "6px 0 0" })
               .text(item.ucapan || ""),
           );
       });
-
       $("#box_ucapan").empty().append(html);
       cleanup();
     };
@@ -92,11 +88,10 @@
     const $form = $("#push_ucapan");
     if (!$form.length) return;
 
-    // Replace the old localStorage-only submit handler in these generated invitation pages.
+    // Remove the legacy localStorage-only submit listener.
     $form.off("submit");
     $form.on("submit", function (event) {
       event.preventDefault();
-
       const nama = String($("#konfir_nama_2").val() || "").trim();
       const ucapan = String($("#ucapan_2").val() || "").trim();
       const ketHadir = $("#hadir_id").val();
@@ -108,7 +103,7 @@
       }
 
       const $button = $("#tombol_kirim_2");
-      const originalButtonText = $button.text();
+      const originalText = $button.text();
       $button.prop("disabled", true).text("Mengirim...");
 
       fetch(GOOGLE_SHEETS_WEB_APP_URL, {
@@ -123,7 +118,7 @@
         }),
       })
         .then(function () {
-          // no-cors responses are opaque; this records the attempt, not confirmed storage.
+          // With no-cors, the browser cannot verify whether Apps Script saved the row.
           localStorage.setItem("isiUcapan", "true");
           localStorage.setItem(
             "ucapanForm-988128-Gunawan+FG+dan+Patner",
@@ -133,9 +128,8 @@
           showNotice(
             "Permintaan ucapan telah dikirim. Periksa Google Sheet untuk memastikan data tersimpan.",
           );
-          if (typeof isUserFilledKehadiranForm === "function") {
+          if (typeof isUserFilledKehadiranForm === "function")
             isUserFilledKehadiranForm();
-          }
           window.setTimeout(loadUcapanFromSheet, 1500);
         })
         .catch(function () {
@@ -144,19 +138,17 @@
           );
         })
         .finally(function () {
-          $button.prop("disabled", false).text(originalButtonText || "Kirim");
+          $button.prop("disabled", false).text(originalText || "Kirim");
         });
     });
   }
 
-  // Run after the generated inline handlers have been registered.
+  // This shared script is included at the end of each generated invitation page.
   if (window.jQuery) {
     jQuery(function () {
       bindSheetGuestbook();
       loadUcapanFromSheet();
     });
   }
-
-  // Keep the existing page scripts that call loadUcapan() working with the shared Sheet list.
   window.loadUcapan = loadUcapanFromSheet;
 })();
